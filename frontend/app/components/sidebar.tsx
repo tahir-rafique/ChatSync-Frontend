@@ -216,14 +216,14 @@ export default function Sidebar({
                 <div className="mt-2 flex items-center gap-3 p-2.5 rounded-xl bg-zinc-800/30 border border-zinc-700/30">
                     <div className="relative">
                         <div className="w-9 h-9 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden flex items-center justify-center text-white text-sm font-bold shadow-inner">
-                            {user?.avatar ? (
+                            {user?.avatar && (user.avatar.startsWith("/") || user.avatar.startsWith("http")) ? (
                                 <img
-                                    src={`http://localhost:5000${user.avatar}`}
+                                    src={user.avatar.startsWith("http") ? user.avatar : `http://localhost:5000${user.avatar}`}
                                     alt={user.name}
                                     className="w-full h-full object-cover"
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+                                <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center font-bold">
                                     {user?.name?.[0].toUpperCase() || "U"}
                                 </div>
                             )}

@@ -102,7 +102,9 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
                                 <div className="w-24 h-24 rounded-full bg-zinc-800 border-4 border-zinc-900 overflow-hidden ring-2 ring-violet-500/30">
                                     {avatarPreview ? (
                                         <img
-                                            src={avatarPreview.startsWith("data:") ? avatarPreview : `http://localhost:5000${avatarPreview}`}
+                                            src={avatarPreview.startsWith("data:") || avatarPreview.startsWith("http")
+                                                ? avatarPreview
+                                                : `http://localhost:5000${avatarPreview}`}
                                             alt="Profile"
                                             className="w-full h-full object-cover"
                                         />

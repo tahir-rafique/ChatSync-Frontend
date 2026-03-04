@@ -240,8 +240,16 @@ export default function AddFriendModal({
                                             style={{ animationDelay: `${i * 0.04}s` }}
                                         >
                                             {/* Avatar */}
-                                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                                                {user.avatar}
+                                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
+                                                {user.avatar && (user.avatar.startsWith("/") || user.avatar.startsWith("http")) ? (
+                                                    <img
+                                                        src={user.avatar.startsWith("http") ? user.avatar : `http://localhost:5000${user.avatar}`}
+                                                        alt={user.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    user.avatar
+                                                )}
                                             </div>
 
                                             {/* Info */}
@@ -297,8 +305,16 @@ export default function AddFriendModal({
                                             className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/60 transition-all animate-fade-in"
                                             style={{ animationDelay: `${i * 0.04}s` }}
                                         >
-                                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                                                {req.from.avatar}
+                                            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden">
+                                                {req.from.avatar && (req.from.avatar.startsWith("/") || req.from.avatar.startsWith("http")) ? (
+                                                    <img
+                                                        src={req.from.avatar.startsWith("http") ? req.from.avatar : `http://localhost:5000${req.from.avatar}`}
+                                                        alt={req.from.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    req.from.avatar
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm text-white font-semibold truncate">

@@ -52,6 +52,8 @@ interface ChatAreaProps {
     messages: Message[];
     onSendMessage: (text: string, attachments?: File[]) => void;
     onBack?: () => void;
+    onTyping?: (isTyping: boolean) => void;
+    isTyping?: boolean;
 }
 
 const EMOJIS = ["😀", "😂", "❤️", "🔥", "👍", "🎉", "😎", "🤔", "💯", "✨", "😊", "🥳", "😍", "🙌", "💪", "🚀", "💜", "😅", "🤣", "👋"];
@@ -64,8 +66,13 @@ export default function ChatArea({
     messages,
     onSendMessage,
     onBack,
+    onTyping,
+    isTyping,
 }: ChatAreaProps) {
     const [input, setInput] = useState("");
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isTypingRef = useRef(false);
+
     const [showEmoji, setShowEmoji] = useState(false);
     const [showAttachMenu, setShowAttachMenu] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -156,7 +163,9 @@ export default function ChatArea({
                     <div>
                         <h2 className="text-sm font-semibold text-white">{chatName}</h2>
                         <p className="text-[11px] text-zinc-500">
-                            {online ? (
+                            {isTyping ? (
+                                <span className="text-violet-400 italic animate-pulse">Typing...</span>
+                            ) : online ? (
                                 <span className="text-emerald-400">Active now</span>
                             ) : (
                                 `Last seen ${lastSeen || "recently"}`
@@ -334,7 +343,20 @@ export default function ChatArea({
                     <div className="flex-1 relative">
                         <textarea
                             value={input}
-                            onChange={(e) => setInput(e.target.value)}
+                            onChange={(e) => {
+                                setInput(e.target.value);
+                                if (onTyping) {
+                                    if (!isTypingRef.current) {
+                                        isTypingRef.current = true;
+                                        onTyping(true);
+                                    }
+                                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                                    typingTimeoutRef.current = setTimeout(() => {
+                                        isTypingRef.current = false;
+                                        onTyping(false);
+                                    }, 2000);
+                                }
+                            }}
                             onKeyDown={handleKeyDown}
                             placeholder="Type a message..."
                             rows={1}
@@ -486,7 +508,15 @@ function AttachmentPreview({ attachment, isMe }: { attachment: Attachment; isMe:
         return (
             <div className={`rounded-2xl ${isMe ? "rounded-br-md" : "rounded-bl-md"} overflow-hidden mb-0.5`}>
                 <div className="w-64 h-48 bg-zinc-800 flex items-center justify-center relative group cursor-pointer">
-                    <ImageIcon size={40} className="text-zinc-600" />
+                    {attachment.url ? (
+                        <img
+                            src={attachment.url.startsWith('http') ? attachment.url : `http://localhost:5000${attachment.url}`}
+                            alt={attachment.name}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <ImageIcon size={40} className="text-zinc-600" />
+                    )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
                         <Download
                             size={20}

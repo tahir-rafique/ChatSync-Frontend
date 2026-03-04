@@ -11,19 +11,12 @@ import ProfileModal from "../components/profile-modal";
 import LogoutConfirmationModal from "../components/logout-confirmation-modal";
 import EmptyState from "../components/empty-state";
 
-// ===== Mock Functions for Messages (Keeping them for UI demo) =====
-const generateMessages = (chatId: string): Message[] => {
-  return [
-    { id: "m1", text: "Hey there! 👋", sender: "other", time: "Earlier", status: "read" },
-    { id: "m2", text: "Hi! How are you?", sender: "me", time: "Earlier", status: "read" },
-    { id: "m3", text: "Start a conversation!", sender: "other", time: "Earlier", status: "read" },
-  ];
-};
+
 
 // ===== Dashboard Page =====
 export default function DashboardPage() {
   const { user, logout, refreshUser } = useAuth();
-  const { on, off } = useSocket();
+  const { on, off, sendMessage } = useSocket();
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [showFriends, setShowFriends] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
@@ -34,6 +27,77 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [allMessages, setAllMessages] = useState<Record<string, Message[]>>({});
+
+  const fetchConversations = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await apiRequest("/chat/conversations");
+      const formatted: ChatUser[] = res.data.conversations.map((c: any) => {
+        const otherParticipant = c.participants.find((p: any) => p._id !== user.id);
+        const name = c.isGroup ? c.groupName : (otherParticipant?.name || "Unknown");
+        const avatar = c.isGroup ? c.groupAvatar : otherParticipant?.avatar;
+
+        return {
+          id: c._id,
+          name,
+          avatar: avatar || name.split(" ").map((n: string) => n[0]).join("").toUpperCase(),
+          lastMessage: c.lastMessage?.content || (c.lastMessage ? `Sent an ${c.lastMessage.type}` : "Start a conversation!"),
+          time: c.lastMessage ? new Date(c.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "",
+          unread: c.unreadCount?.[user.id] || 0,
+          online: !c.isGroup && otherParticipant?.isOnline,
+          pinned: false
+        };
+      });
+      setChats(formatted);
+    } catch (err) {
+      console.error("Failed to fetch conversations:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const fetchMessages = useCallback(async (conversationId: string) => {
+    try {
+      const res = await apiRequest(`/chat/conversations/${conversationId}/messages`);
+      const formatted: Message[] = res.data.map((m: any) => ({
+        id: m._id,
+        text: m.content || "",
+        sender: m.sender._id === user?.id ? "me" : "other",
+        time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        status: m.readBy?.some((r: any) => r.user !== user?.id) ? "read" : "sent",
+        attachment: m.fileUrl ? {
+          id: m._id,
+          type: m.type,
+          name: m.fileName || "File",
+          size: m.fileSize ? `${(m.fileSize / (1024 * 1024)).toFixed(1)} MB` : "0 MB",
+          url: m.fileUrl
+        } : undefined
+      }));
+      setAllMessages(prev => ({ ...prev, [conversationId]: formatted }));
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+    }
+  }, [user?.id]);
+
+  const fetchFriends = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await apiRequest("/users/friends");
+      const formatted: Friend[] = res.data.friends.map((f: any) => ({
+        id: f._id,
+        name: f.name,
+        avatar: f.avatar || f.name[0].toUpperCase(),
+        online: f.isOnline,
+        lastSeen: f.isOnline ? "now" : new Date(f.lastSeen).toLocaleDateString(),
+        status: f.isOnline ? "Active now" : "Offline",
+      }));
+      setFriends(formatted);
+    } catch (err) {
+      console.error("Failed to fetch friends:", err);
+    } finally {
+      setLoadingFriends(false);
+    }
+  }, [user?.id]);
 
   // Listen for profile updates via socket
   useEffect(() => {
@@ -73,125 +137,130 @@ export default function DashboardPage() {
     };
 
     on("PROFILE_UPDATED", handleProfileUpdate);
-    return () => off("PROFILE_UPDATED", handleProfileUpdate);
-  }, [user?.id, on, off, refreshUser]);
 
-  const fetchUsers = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const res = await apiRequest("/users/friends");
-      const formattedUsers: ChatUser[] = res.data.friends.map((f: any) => ({
-        id: f._id,
-        name: f.name,
-        avatar: f.avatar || f.name.split(" ").map((n: string) => n[0]).join("").toUpperCase(),
-        lastMessage: "Start a conversation!",
-        time: f.isOnline ? "now" : "offline",
-        unread: 0,
-        online: f.isOnline,
-        pinned: false
-      }));
-      setChats(formattedUsers);
-    } catch (err) {
-      console.error("Failed to fetch friends for sidebar:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+    const handleNewMessage = (message: any) => {
+      const { conversationId, content, sender, type, createdAt, fileUrl } = message;
 
-  const fetchFriends = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const res = await apiRequest("/users/friends");
-      const formatted: Friend[] = res.data.friends.map((f: any) => ({
-        id: f._id,
-        name: f.name,
-        avatar: f.avatar || f.name[0].toUpperCase(),
-        online: f.isOnline,
-        lastSeen: f.isOnline ? "now" : new Date(f.lastSeen).toLocaleDateString(),
-        status: f.isOnline ? "Active now" : "Offline",
+      // Update messages for the active chat
+      setAllMessages((prev) => ({
+        ...prev,
+        [conversationId]: [...(prev[conversationId] || []), {
+          id: message._id,
+          text: content || "",
+          sender: sender._id === user?.id ? "me" : "other",
+          time: new Date(createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          status: "sent",
+          attachment: fileUrl ? {
+            id: message._id,
+            type: type,
+            name: message.fileName || "File",
+            size: message.fileSize ? `${(message.fileSize / (1024 * 1024)).toFixed(1)} MB` : "0 MB",
+            url: fileUrl
+          } : undefined
+        }]
       }));
-      setFriends(formatted);
-    } catch (err) {
-      console.error("Failed to fetch friends:", err);
-    } finally {
-      setLoadingFriends(false);
-    }
-  }, [user?.id]);
+
+      // Update last message in sidebar
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === conversationId
+            ? {
+              ...chat,
+              lastMessage: content || `Sent an ${type}`,
+              time: "now",
+              unread: activeChat === conversationId ? 0 : (chat.unread || 0) + (sender._id === user?.id ? 0 : 1)
+            }
+            : chat
+        )
+      );
+    };
+
+    const handleTyping = ({ conversationId, userId, userName }: any, isTyping: boolean) => {
+      if (userId === user?.id) return;
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === conversationId ? { ...chat, typing: isTyping } : chat
+        )
+      );
+    };
+
+    const handleFriendUpdate = () => {
+      fetchFriends();
+      fetchConversations();
+    };
+
+    on("NEW_MESSAGE", handleNewMessage);
+    on("TYPING_START", (payload) => handleTyping(payload, true));
+    on("TYPING_STOP", (payload) => handleTyping(payload, false));
+    on("FRIEND_UPDATED", handleFriendUpdate);
+
+    return () => {
+      off("PROFILE_UPDATED", handleProfileUpdate);
+      off("NEW_MESSAGE", handleNewMessage);
+      off("TYPING_START", () => { });
+      off("TYPING_STOP", () => { });
+      off("FRIEND_UPDATED", handleFriendUpdate);
+    };
+  }, [user?.id, on, off, refreshUser, activeChat, fetchFriends, fetchConversations]);
 
   useEffect(() => {
-    fetchUsers();
+    fetchConversations();
     fetchFriends();
-  }, [fetchUsers, fetchFriends]);
+  }, [fetchConversations, fetchFriends]);
+
+  useEffect(() => {
+    if (activeChat) {
+      fetchMessages(activeChat);
+      sendMessage("JOIN_CONVERSATION", { conversationId: activeChat });
+    }
+    return () => {
+      if (activeChat) sendMessage("LEAVE_CONVERSATION", { conversationId: activeChat });
+    };
+  }, [activeChat, fetchMessages, sendMessage]);
 
   const activeChatData = chats.find((c) => c.id === activeChat);
 
   const getMessages = useCallback((chatId: string): Message[] => {
-    if (allMessages[chatId]) return allMessages[chatId];
-    return generateMessages(chatId);
+    return allMessages[chatId] || [];
   }, [allMessages]);
 
-  const handleSendMessage = useCallback((text: string, attachments?: File[]) => {
+  const handleSendMessage = useCallback(async (text: string, attachments?: File[]) => {
     if (!activeChat) return;
 
-    const newMessages: Message[] = [];
+    try {
+      if (attachments && attachments.length > 0) {
+        for (const file of attachments) {
+          const formData = new FormData();
+          formData.append("file", file);
+          await apiRequest(`/chat/conversations/${activeChat}/upload`, {
+            method: "POST",
+            body: formData,
+          });
+        }
+      }
 
-    // Handle attachments
-    if (attachments && attachments.length > 0) {
-      attachments.forEach((file, i) => {
-        let type: "image" | "video" | "audio" | "file" = "file";
-        if (file.type.startsWith("image")) type = "image";
-        else if (file.type.startsWith("video")) type = "video";
-        else if (file.type.startsWith("audio")) type = "audio";
-
-        newMessages.push({
-          id: `new-${Date.now()}-att-${i}`,
-          text: "",
-          sender: "me",
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          status: "sent",
-          attachment: {
-            id: `att-${Date.now()}-${i}`,
-            type,
-            name: file.name,
-            size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          },
+      if (text) {
+        await apiRequest(`/chat/conversations/${activeChat}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ content: text }),
         });
-      });
+      }
+    } catch (err) {
+      console.error("Failed to send message:", err);
     }
-
-    // Handle text
-    if (text) {
-      newMessages.push({
-        id: `new-${Date.now()}-text`,
-        text,
-        sender: "me",
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        status: "sent",
-      });
-    }
-
-    setAllMessages((prev) => ({
-      ...prev,
-      [activeChat]: [...(prev[activeChat] || generateMessages(activeChat)), ...newMessages],
-    }));
-
-    // Update last message in sidebar
-    setChats((prev) =>
-      prev.map((c) =>
-        c.id === activeChat
-          ? { ...c, lastMessage: text || "Sent an attachment", time: "now" }
-          : c
-      )
-    );
   }, [activeChat]);
 
   const handleSelectChat = useCallback((id: string) => {
     setActiveChat(id);
-    // Clear unread
     setChats((prev) =>
       prev.map((c) => (c.id === id ? { ...c, unread: 0, typing: false } : c))
     );
   }, []);
+
+  const handleTypingStatus = useCallback((isTyping: boolean) => {
+    if (!activeChat) return;
+    sendMessage(isTyping ? "TYPING_START" : "TYPING_STOP", { conversationId: activeChat });
+  }, [activeChat, sendMessage]);
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -221,9 +290,11 @@ export default function DashboardPage() {
           chatName={activeChatData.name}
           chatAvatar={activeChatData.avatar}
           online={activeChatData.online}
+          isTyping={activeChatData.typing}
           messages={getMessages(activeChat)}
           onSendMessage={handleSendMessage}
           onBack={() => setActiveChat(null)}
+          onTyping={handleTypingStatus}
         />
       ) : (
         <EmptyState
@@ -237,9 +308,19 @@ export default function DashboardPage() {
         <FriendsPanel
           friends={friends}
           onClose={() => setShowFriends(false)}
-          onStartChat={(friendId) => {
-            setShowFriends(false);
-            handleSelectChat(friendId);
+          onStartChat={async (friendId) => {
+            try {
+              const res = await apiRequest(`/chat/conversations/start/${friendId}`, { method: "POST" });
+              const convoId = res.data.conversation._id;
+
+              // Refresh conversations to show the new one if it's new
+              fetchConversations();
+
+              setShowFriends(false);
+              handleSelectChat(convoId);
+            } catch (err) {
+              console.error("Failed to start chat:", err);
+            }
           }}
           onRemoveFriend={async (friendId) => {
             try {
@@ -258,7 +339,7 @@ export default function DashboardPage() {
             setShowAddFriend(false);
           }}
           onRefresh={() => {
-            fetchUsers();
+            fetchConversations();
             fetchFriends();
           }}
         />

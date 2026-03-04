@@ -52,17 +52,56 @@ const searchUsers = asyncHandler(async (req, res) => {
   // Annotate with friendship status
   const currentUser = await User.findById(req.user.id).select("friends friendRequests");
   const friendIds = currentUser.friends.map((f) => f.toString());
-  const pendingIds = currentUser.friendRequests
+
+  // Received requests
+  const receivedPendingIds = currentUser.friendRequests
     .filter((r) => r.status === "pending")
     .map((r) => r.from.toString());
+
+  // Sent requests (users who have a request from me)
+  const sentPendingUsers = await User.find({
+    "friendRequests.from": req.user.id,
+    "friendRequests.status": "pending"
+  }).select("_id");
+  const sentPendingIds = sentPendingUsers.map(u => u._id.toString());
 
   const annotated = users.map((u) => ({
     ...u,
     isFriend: friendIds.includes(u._id.toString()),
-    isPending: pendingIds.includes(u._id.toString()),
+    isPending: receivedPendingIds.includes(u._id.toString()) || sentPendingIds.includes(u._id.toString()),
   }));
 
   return sendPaginated(res, annotated, total, parseInt(page), parseInt(limit), "Users fetched");
+});
+
+const getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find({ _id: { $ne: req.user.id } })
+    .select("name email avatar isOnline lastSeen")
+    .lean();
+
+  // Annotate with friendship status
+  const currentUser = await User.findById(req.user.id).select("friends friendRequests");
+  const friendIds = currentUser.friends.map((f) => f.toString());
+
+  // Received requests
+  const receivedPendingIds = currentUser.friendRequests
+    .filter((r) => r.status === "pending")
+    .map((r) => r.from.toString());
+
+  // Sent requests
+  const sentPendingUsers = await User.find({
+    "friendRequests.from": req.user.id,
+    "friendRequests.status": "pending"
+  }).select("_id");
+  const sentPendingIds = sentPendingUsers.map(u => u._id.toString());
+
+  const annotated = users.map((u) => ({
+    ...u,
+    isFriend: friendIds.includes(u._id.toString()),
+    isPending: receivedPendingIds.includes(u._id.toString()) || sentPendingIds.includes(u._id.toString()),
+  }));
+
+  return sendSuccess(res, annotated, "All users fetched");
 });
 
 /**
@@ -225,6 +264,10 @@ const acceptFriendRequest = asyncHandler(async (req, res) => {
   // Add reverse friendship
   await User.findByIdAndUpdate(requesterId, { $addToSet: { friends: req.user.id } });
 
+  // Broadcast WebSocket event to both users to refresh their friend lists
+  sendToUser(req.user.id, { type: "FRIEND_UPDATED", payload: { action: "added" } });
+  sendToUser(requesterId, { type: "FRIEND_UPDATED", payload: { action: "added" } });
+
   return sendSuccess(res, null, "Friend request accepted");
 });
 
@@ -280,23 +323,7 @@ const removeFriend = asyncHandler(async (req, res) => {
   return sendSuccess(res, null, "Friend removed");
 });
 
-/**
- * @swagger
- * /users:
- *   get:
- *     tags: [Users]
- *     summary: Get all registered users (except current)
- *     responses:
- *       200:
- *         description: List of users
- */
-const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({ _id: { $ne: req.user.id } })
-    .select("name email avatar isOnline lastSeen")
-    .lean();
 
-  return sendSuccess(res, { users }, "All users fetched");
-});
 
 /**
  * @swagger
