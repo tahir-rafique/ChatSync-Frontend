@@ -54,7 +54,7 @@ export default function FriendsPanel({
 
             {/* Panel */}
             <div
-                className="relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 shadow-2xl shadow-black/50 overflow-hidden animate-scale-in"
+                className="relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-zinc-800/50 shadow-2xl shadow-black/50 animate-scale-in"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Decorative gradient */}
@@ -122,7 +122,7 @@ export default function FriendsPanel({
                 </div>
 
                 {/* Friends List */}
-                <div className="px-4 pb-4 max-h-[400px] overflow-y-auto">
+                <div className="px-4 pb-12 max-h-[400px] overflow-y-auto">
                     {filtered.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
                             <Users size={36} className="mb-3 opacity-30" />
@@ -179,7 +179,7 @@ export default function FriendsPanel({
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className={`flex items-center gap-1 transition-opacity ${menuOpen === friend.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
                                         <button
                                             onClick={() => onStartChat(friend.id)}
                                             className="p-2 rounded-lg text-zinc-400 hover:text-violet-400 hover:bg-violet-500/10 transition-all"

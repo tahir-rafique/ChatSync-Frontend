@@ -101,7 +101,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
     isPending: receivedPendingIds.includes(u._id.toString()) || sentPendingIds.includes(u._id.toString()),
   }));
 
-  return sendSuccess(res, annotated, "All users fetched");
+  return sendSuccess(res, { users: annotated }, "All users fetched");
 });
 
 /**

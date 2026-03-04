@@ -90,8 +90,8 @@ export default function AddFriendModal({
 
                 const res = await apiRequest(endpoint);
 
-                // Handle different response structures if necessary
-                const rawUsers = res.data.docs || res.data.users || [];
+                // Handle different response structures: paginated docs, direct users array, or data itself as array
+                const rawUsers = res.data.docs || res.data.users || (Array.isArray(res.data) ? res.data : []);
 
                 const formatted = rawUsers.map((u: any) => ({
                     id: u._id,
