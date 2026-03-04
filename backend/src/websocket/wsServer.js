@@ -227,10 +227,23 @@ const safeSend = (ws, data) => {
   }
 };
 
-// ── Extract token from request URL ───────────────────────
+// ── Extract token from request URL or Cookie ───────────────
 const extractToken = (req) => {
+  // 1. Try URL Query Param
   const url = new URL(req.url, `http://${req.headers.host}`);
-  return url.searchParams.get("token");
+  const queryToken = url.searchParams.get("token");
+  if (queryToken) return queryToken;
+
+  // 2. Try Cookie
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const cookies = Object.fromEntries(
+      cookieHeader.split("; ").map((c) => c.split("="))
+    );
+    return cookies.accessToken;
+  }
+
+  return null;
 };
 
 const getWss = () => wss;

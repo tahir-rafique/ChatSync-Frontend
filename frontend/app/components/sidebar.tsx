@@ -33,6 +33,7 @@ interface SidebarProps {
     onSelectChat: (id: string) => void;
     onOpenFriends: () => void;
     onOpenAddFriend: () => void;
+    onOpenProfile: () => void;
     onLogout: () => void;
     chats: ChatUser[];
 }
@@ -43,6 +44,7 @@ export default function Sidebar({
     onSelectChat,
     onOpenFriends,
     onOpenAddFriend,
+    onOpenProfile,
     onLogout,
     chats,
 }: SidebarProps) {
@@ -213,16 +215,30 @@ export default function Sidebar({
                 {/* User Profile Mini */}
                 <div className="mt-2 flex items-center gap-3 p-2.5 rounded-xl bg-zinc-800/30 border border-zinc-700/30">
                     <div className="relative">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
-                            {user?.name?.[0].toUpperCase() || "U"}
+                        <div className="w-9 h-9 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden flex items-center justify-center text-white text-sm font-bold shadow-inner">
+                            {user?.avatar ? (
+                                <img
+                                    src={`http://localhost:5000${user.avatar}`}
+                                    alt={user.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+                                    {user?.name?.[0].toUpperCase() || "U"}
+                                </div>
+                            )}
                         </div>
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900" />
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900 shadow-lg" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm text-white font-medium truncate">{user?.name || "User"}</p>
                         <p className="text-[11px] text-zinc-500">Online</p>
                     </div>
-                    <button className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-700/50 transition-all">
+                    <button
+                        onClick={onOpenProfile}
+                        className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-700/50 transition-all"
+                        title="Profile Settings"
+                    >
                         <Settings size={16} />
                     </button>
                 </div>
@@ -255,12 +271,20 @@ function ChatItem({
             {/* Avatar */}
             <div className="relative flex-shrink-0">
                 <div
-                    className={`w-11 h-11 rounded-full flex items-center justify-center text-white text-sm font-bold ${active
+                    className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-bold ${active
                         ? "bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-violet-500/20"
                         : "bg-gradient-to-br from-zinc-600 to-zinc-700"
                         }`}
                 >
-                    {chat.avatar}
+                    {chat.avatar && (chat.avatar.startsWith("/") || chat.avatar.startsWith("http")) ? (
+                        <img
+                            src={chat.avatar.startsWith("http") ? chat.avatar : `http://localhost:5000${chat.avatar}`}
+                            alt={chat.name}
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        chat.avatar
+                    )}
                 </div>
                 {chat.online && (
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900" />

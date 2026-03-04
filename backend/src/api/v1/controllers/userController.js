@@ -2,6 +2,7 @@ const User = require("../../../models/User");
 const AppError = require("../../../utils/AppError");
 const asyncHandler = require("../../../utils/asyncHandler");
 const { sendSuccess, sendPaginated } = require("../../../utils/response");
+const { broadcastToFriends, sendToUser } = require("../../../websocket/wsServer");
 
 /**
  * @swagger
@@ -107,12 +108,36 @@ const getUserById = asyncHandler(async (req, res) => {
 const updateProfile = asyncHandler(async (req, res) => {
   const { name, phone } = req.body;
   const updates = {};
-  if (name) updates.name = name;
-  if (phone) updates.phone = phone;
-  if (req.file) updates.avatar = `/uploads/images/${req.file.filename}`;
+
+  if (name && name.trim()) updates.name = name.trim();
+  if (phone !== undefined) updates.phone = phone.trim() || null;
+  if (req.file) {
+    const folder = req.file.mimetype.startsWith("image") ? "images" :
+      req.file.mimetype.startsWith("video") ? "videos" :
+        req.file.mimetype.startsWith("audio") ? "audios" : "files";
+    updates.avatar = `/uploads/${folder}/${req.file.filename}`;
+  }
 
   const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true, runValidators: true });
-  return sendSuccess(res, { user: user.toPublic() }, "Profile updated");
+  if (!user) throw new AppError("User not found", 404);
+
+  const publicUser = user.toPublic();
+  // Normalize _id to id for frontend compatibility
+  publicUser.id = publicUser._id?.toString() || publicUser.id;
+
+  // ── Broadcast Update via WebSocket ───────────────────────
+  const socketPayload = {
+    userId: user._id.toString(),
+    name: user.name,
+    avatar: user.avatar,
+  };
+
+  // Notify friends so their sidebars/friend lists update
+  broadcastToFriends(user, { type: "PROFILE_UPDATED", payload: socketPayload });
+  // Notify user's other sessions (if any)
+  sendToUser(user._id.toString(), { type: "PROFILE_UPDATED", payload: socketPayload });
+
+  return sendSuccess(res, { user: publicUser }, "Profile updated");
 });
 
 /**

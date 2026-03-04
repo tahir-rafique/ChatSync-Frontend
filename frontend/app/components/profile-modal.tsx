@@ -16,6 +16,7 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
     const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar || null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +34,7 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setError(null);
         try {
             const formData = new FormData();
             formData.append("name", name);
@@ -44,19 +46,20 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
             const res = await apiRequest("/users/profile", {
                 method: "PUT",
                 body: formData,
-                // apiRequest likely handles FormData if body is FormData
             });
 
             if (res.status === "success") {
                 setSuccess(true);
+                // Pass updated user directly — no extra API round-trip needed
                 onUpdate(res.data.user);
                 setTimeout(() => {
                     setSuccess(false);
                     onClose();
-                }, 1500);
+                }, 800);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to update profile:", err);
+            setError(err?.message || "Failed to save changes. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -178,6 +181,13 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
                             </div>
                         </div>
 
+                        {/* Error Message */}
+                        {error && (
+                            <div className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-2.5 text-sm text-red-400">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Actions */}
                         <div className="flex gap-3 pt-4">
                             <button
@@ -191,8 +201,8 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
                                 type="submit"
                                 disabled={loading || success}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${success
-                                        ? "bg-emerald-500 text-white"
-                                        : "bg-gradient-to-br from-violet-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-violet-600/20 active:scale-[0.98]"
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-gradient-to-br from-violet-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-violet-600/20 active:scale-[0.98]"
                                     } ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
                                 {loading ? (

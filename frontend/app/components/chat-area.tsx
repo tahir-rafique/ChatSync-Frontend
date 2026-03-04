@@ -138,8 +138,16 @@ export default function ChatArea({
                         </button>
                     )}
                     <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-violet-500/20">
-                            {chatAvatar}
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-violet-500/20 overflow-hidden">
+                            {chatAvatar && (chatAvatar.startsWith("/") || chatAvatar.startsWith("http")) ? (
+                                <img
+                                    src={chatAvatar.startsWith("http") ? chatAvatar : `http://localhost:5000${chatAvatar}`}
+                                    alt={chatName}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                chatAvatar
+                            )}
                         </div>
                         {online && (
                             <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900" />

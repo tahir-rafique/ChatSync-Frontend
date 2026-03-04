@@ -1,11 +1,13 @@
 "use client";
 import React, { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useSocket } from "@/context/SocketContext";
 import { apiRequest } from "@/lib/api";
 import Sidebar, { type ChatUser } from "../components/sidebar";
 import ChatArea, { type Message } from "../components/chat-area";
 import FriendsPanel, { type Friend } from "../components/friends-panel";
 import AddFriendModal from "../components/add-friend-modal";
+import ProfileModal from "../components/profile-modal";
 import LogoutConfirmationModal from "../components/logout-confirmation-modal";
 import EmptyState from "../components/empty-state";
 
@@ -20,10 +22,12 @@ const generateMessages = (chatId: string): Message[] => {
 
 // ===== Dashboard Page =====
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const { on, off } = useSocket();
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [showFriends, setShowFriends] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [chats, setChats] = useState<ChatUser[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -31,8 +35,49 @@ export default function DashboardPage() {
   const [loadingFriends, setLoadingFriends] = useState(true);
   const [allMessages, setAllMessages] = useState<Record<string, Message[]>>({});
 
+  // Listen for profile updates via socket
+  useEffect(() => {
+    const handleProfileUpdate = (payload: any) => {
+      const { userId, name, avatar } = payload;
+
+      // Update sidebar chats
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === userId
+            ? {
+              ...chat,
+              name: name || chat.name,
+              avatar: avatar || chat.avatar
+            }
+            : chat
+        )
+      );
+
+      // Update friends panel
+      setFriends((prev) =>
+        prev.map((friend) =>
+          friend.id === userId
+            ? {
+              ...friend,
+              name: name || friend.name,
+              avatar: avatar || friend.avatar
+            }
+            : friend
+        )
+      );
+
+      // If it's the current user, refresh our auth state
+      if (user?.id === userId) {
+        refreshUser(payload);
+      }
+    };
+
+    on("PROFILE_UPDATED", handleProfileUpdate);
+    return () => off("PROFILE_UPDATED", handleProfileUpdate);
+  }, [user?.id, on, off, refreshUser]);
+
   const fetchUsers = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) return;
     try {
       const res = await apiRequest("/users/friends");
       const formattedUsers: ChatUser[] = res.data.friends.map((f: any) => ({
@@ -51,10 +96,10 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchFriends = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) return;
     try {
       const res = await apiRequest("/users/friends");
       const formatted: Friend[] = res.data.friends.map((f: any) => ({
@@ -71,7 +116,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingFriends(false);
     }
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchUsers();
@@ -165,6 +210,7 @@ export default function DashboardPage() {
         onSelectChat={handleSelectChat}
         onOpenFriends={() => setShowFriends(true)}
         onOpenAddFriend={() => setShowAddFriend(true)}
+        onOpenProfile={() => setShowProfile(true)}
         onLogout={handleLogout}
         chats={chats}
       />
@@ -215,6 +261,14 @@ export default function DashboardPage() {
             fetchUsers();
             fetchFriends();
           }}
+        />
+      )}
+
+      {showProfile && (
+        <ProfileModal
+          user={user}
+          onClose={() => setShowProfile(false)}
+          onUpdate={refreshUser}
         />
       )}
 

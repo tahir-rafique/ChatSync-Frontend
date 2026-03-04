@@ -141,8 +141,16 @@ export default function FriendsPanel({
                                 >
                                     {/* Avatar */}
                                     <div className="relative flex-shrink-0">
-                                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 flex items-center justify-center text-white text-sm font-bold">
-                                            {friend.avatar}
+                                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-zinc-600 to-zinc-700 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                                            {friend.avatar && (friend.avatar.startsWith("/") || friend.avatar.startsWith("http")) ? (
+                                                <img
+                                                    src={friend.avatar.startsWith("http") ? friend.avatar : `http://localhost:5000${friend.avatar}`}
+                                                    alt={friend.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                friend.avatar
+                                            )}
                                         </div>
                                         {friend.online ? (
                                             <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900" />

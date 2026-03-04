@@ -8,6 +8,7 @@ interface User {
     id: string;
     name: string;
     email: string;
+    phone?: string;
     avatar?: string;
     isOnline: boolean;
 }
@@ -19,8 +20,18 @@ interface AuthContextType {
     login: (data: any) => Promise<void>;
     register: (data: any) => Promise<void>;
     logout: () => Promise<void>;
-    refreshUser: () => Promise<void>;
+    refreshUser: (prefetchedUser?: any) => Promise<void>;
 }
+
+// Normalize backend user object (_id → id)
+const normalizeUser = (raw: any): User => ({
+    id: raw.id || raw._id?.toString(),
+    name: raw.name,
+    email: raw.email,
+    phone: raw.phone,
+    avatar: raw.avatar,
+    isOnline: raw.isOnline ?? false,
+});
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -32,10 +43,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const refreshUser = useCallback(async () => {
+    const refreshUser = useCallback(async (prefetchedUser?: any) => {
+        // If caller already has fresh user data, skip the extra API call
+        if (prefetchedUser) {
+            setUser(normalizeUser(prefetchedUser));
+            return;
+        }
         try {
             const response = await apiRequest("/auth/me");
-            setUser(response.data.user);
+            setUser(normalizeUser(response.data.user));
         } catch (error) {
             setUser(null);
         } finally {
@@ -67,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 method: "POST",
                 body: JSON.stringify(credentials),
             });
-            setUser(response.data.user);
+            setUser(normalizeUser(response.data.user));
             router.push("/");
         } catch (error) {
             throw error;
@@ -83,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 method: "POST",
                 body: JSON.stringify(userData),
             });
-            setUser(response.data.user);
+            setUser(normalizeUser(response.data.user));
             router.push("/");
         } catch (error) {
             throw error;

@@ -18,7 +18,11 @@ const v1Routes = require("./api/v1/routes");
 const app = express();
 
 // ── Security Middlewares ──────────────────────────────────
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow frontend to load images/files
+  })
+);
 app.use(mongoSanitize());
 
 // ── CORS ──────────────────────────────────────────────────
@@ -47,7 +51,14 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan("combined", { stream: { write: (msg) => logger.http(msg.trim()) } }));
 
 // ── Static Files (Uploads) ────────────────────────────────
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
 
 // ── Swagger API Docs ──────────────────────────────────────
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
