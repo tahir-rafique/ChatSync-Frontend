@@ -69,7 +69,7 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
 
     return (
         <div
-            className="fixed inset-0 z-[60] flex items-center justify-center animate-overlay-in px-4"
+            className="fixed inset-0 z-60 flex items-center justify-center animate-overlay-in px-4"
             onClick={onClose}
         >
             {/* Backdrop */}
@@ -81,7 +81,7 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header Gradient */}
-                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-violet-600/20 to-indigo-600/20 pointer-events-none" />
+                <div className="absolute top-0 left-0 right-0 h-32 bg-linear-to-br from-violet-600/20 to-indigo-600/20 pointer-events-none" />
 
                 {/* Close Button */}
                 <button
@@ -206,7 +206,7 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
                                 disabled={loading || success}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${success
                                     ? "bg-emerald-500 text-white"
-                                    : "bg-gradient-to-br from-violet-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-violet-600/20 active:scale-[0.98]"
+                                    : "bg-linear-to-br from-violet-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-violet-600/20 active:scale-[0.98]"
                                     } ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
                             >
                                 {loading ? (
