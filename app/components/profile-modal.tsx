@@ -43,26 +43,28 @@ export default function ProfileModal({ user, onClose, onUpdate }: ProfileModalPr
                 formData.append("avatar", avatar);
             }
 
+            // Using PATCH as it's often more compatible for partial updates
             const res = await apiRequest("/users/profile", {
-                method: "PUT",
+                method: "PATCH",
                 body: formData,
             });
 
-            if (res.status === "success") {
+            if (res.status === "success" || res.data?.user) {
                 setSuccess(true);
                 // Pass updated user directly — no extra API round-trip needed
-                onUpdate(res.data.user);
+                onUpdate(res.data.user || res.data);
                 setTimeout(() => {
                     setSuccess(false);
                     onClose();
                 }, 800);
             }
         } catch (err: any) {
-            console.error("Failed to update profile:", err);
-            setError(err?.message || "Failed to save changes. Please try again.");
+            console.error("Profile update failed:", err);
+            setError(err?.message || "Failed to save changes. Please check your connection.");
         } finally {
             setLoading(false);
         }
+
     };
 
     return (
